@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34009.444
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LinearScales", "LinearScales.vcxproj", "{3BCE2258-BDC9-4403-941A-1B21D07BC585}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+		smooker|x86 = smooker|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3BCE2258-BDC9-4403-941A-1B21D07BC585}.Debug|x86.ActiveCfg = Debug|Win32
+		{3BCE2258-BDC9-4403-941A-1B21D07BC585}.Debug|x86.Build.0 = Debug|Win32
+		{3BCE2258-BDC9-4403-941A-1B21D07BC585}.Release|x86.ActiveCfg = Release|Win32
+		{3BCE2258-BDC9-4403-941A-1B21D07BC585}.Release|x86.Build.0 = Release|Win32
+		{3BCE2258-BDC9-4403-941A-1B21D07BC585}.smooker|x86.ActiveCfg = smooker|Win32
+		{3BCE2258-BDC9-4403-941A-1B21D07BC585}.smooker|x86.Build.0 = smooker|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BCEF0A5C-B7FB-4C2D-AFC6-5D8FAA9EDD68}
+	EndGlobalSection
+EndGlobal

@@ -5,8 +5,6 @@
 #include "resource.h"
 #include "JoySetup.h"
 
-
-
 extern int  XJoyAxis;
 extern int  YJoyAxis;
 

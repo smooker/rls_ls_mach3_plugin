@@ -150,7 +150,7 @@ void	myUpdate ()
 // da vikame M84 ili neshto takova sys g-code, koeto da stiga do thread 6 na dynomotiona
 {
 	if ((++smooCnt % 5) == 0) {
-		Serial3->ReadSerialPort();	 //Y
+		Serial3->readValuefromScale();
 		smooCnt = 0;
 	}
 	//Serial4->ReadSerialPort(); //X

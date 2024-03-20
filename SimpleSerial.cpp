@@ -1,6 +1,4 @@
-//#ifdef _MSC_VER
 #include "stdafx.h"
-//#endif
 
 #include "SimpleSerial.h"
 
@@ -9,29 +7,39 @@ using namespace std;
 SimpleSerial::SimpleSerial(const LPCSTR& com_port):
 connected_(false)
 {
+    std::setlocale(LC_CTYPE, "");
+
+    test = (char*)calloc(1, sizeof(test));
+
     //init
     //std::vector<std::string> lpBuffer = { "M6", "B26\r", "e", "s", "r", "4" }; //RABOTI DO M6 - 1.1MHz
     lpBuffer.clear();
     lpBuffer.push_back("M6");
     lpBuffer.push_back("B26\r");
-
-    //lpBuffer.push_back("e");
-    //lpBuffer.push_back("s");
     lpBuffer.push_back("r");
-    //lpBuffer.push_back("4");
 
     io_handler_ = OpenPort(com_port);
-    //MessageBox(NULL, "Alive2!", "Config OK", MB_OK);
     getReading(io_handler_, 2);     //here smooker
 }
 
 SimpleSerial::~SimpleSerial()
 {
+    free(test);
     if (connected_)
     {
         connected_ = false;
         CloseHandle(io_handler_);
     }
+}
+
+double SimpleSerial::getValue()
+{
+    return Value;
+}
+
+std::string SimpleSerial::getSerNo()
+{
+    return SerNo;
 }
 
 char* SimpleSerial::convertToBitString(unsigned long long value)
@@ -48,12 +56,13 @@ char* SimpleSerial::convertToBitString(unsigned long long value)
     return &str1[0];
 }
 
-std::string SimpleSerial::ReadSerialPort()
+double SimpleSerial::readValuefromScale()
 {
+    Value = -11.11111;
     lpBuffer.clear();
     lpBuffer.push_back("4");
     getReading(io_handler_, 0);
-    return "vgz";
+    return Value;
 }
 
 bool SimpleSerial::WriteSerialPort(const std::string& data_sent)
@@ -133,7 +142,7 @@ HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
 
 uint8_t SimpleSerial::crcBiSS(uint32_t data)
 {
-    printf("\nCRC2:%x\n", data);
+    //printf("\nCRC2:%x\n", data);          //debug
     uint8_t crc;
     uint32_t tmp;
     tmp = (data >> 30) & 0x00000003;
@@ -151,15 +160,15 @@ uint8_t SimpleSerial::crcBiSS(uint32_t data)
     return crc;
 }
 
+//convert from hex to actual position (double)
 double SimpleSerial::parsePosition(unsigned long long input)
 {
-    char out[130];
-    char* outptr;
-    double outdbl = -11.111;
+    //signal value
+    outdbl = -11.111;
 
     outptr = &out[0];
 
-    memcpy(out, convertToBitString(input), 130);
+    memcpy(out, convertToBitString(input), 130);    //here checkme
 
     //printf("\r\nBIN:%s\r\n", convertToBitString(input));
 
@@ -171,66 +180,82 @@ double SimpleSerial::parsePosition(unsigned long long input)
     // 2 bits status
     // 6 bits CRC
     // rest - ignored
-    printf("CHECK1:");
+
+    //printf("CHECK1:");            //debug
+    
+    //begin
     if ((out[0] == '1') && (out[1] == '1')) {
         outptr += 2;
-        printf("OK \nZEROES:");
+
+        //zeroes skip
+        //printf("OK \nZEROES:");   //debug
         while (*outptr == '0')
         {
-            printf("0");
+            //printf("0");          //debug
             outptr++;
         }
-        printf("\n");
+        //printf("\n");             //debug
+
+        //detection of start condition
         if ((*outptr == '1') && (*(outptr + 1) == '0')) {
-            printf("START CONDITION\n");
+            //printf("START CONDITION\n");      //debug
             outptr += 2;
         }
-        printf("POS:");
+
+        //actual position
+        //printf("POS:");           //debug
         for (int i = 0; i < 26; i++) {
-            printf("%c", *outptr);
+            //printf("%c", *outptr);    //debug
             outptr++;
         }
-        printf("\n");
-        unsigned long int res = convert(outptr - 26, 26);
-        //double res2 = res * 0.2442 / 1000;        //veroiatno ot kriv vint - greshni rezutati
-        double res2 = res * 0.244140625 / 1000;
-        printf("%.5f", res2);
+        //printf("\n");
 
-        printf("\n");
-        printf("STATUS:");
+        //
+        unsigned long int res = convert(outptr - 26, 26);
+        //double res2 = res * 0.2442 / 1000;                //veroiatno ot kriv vint - greshni rezutati
+        double res2 = res * 0.244140625 / 1000;             //tova e viarnata stoinost.. koito chete pdf
+        //printf("POS_%s: %.8fmm\n", SerNo.c_str(), res2);               //actual reading debug
+
+        //printf("\n");
+        
+        // status processing
+        //printf("STATUS:");                //debug
         uint8_t status = 0;
         for (int i = 1; i >= 0; i--) {
-            printf("%c", *outptr);
+            //printf("%c", *outptr);        //debug
             if (*outptr == '1')
                 status += (1 << i);
             if (*outptr == '0')
-                res2 = -11.111;     //error signalling
+                res2 = -11.111;         //error signalling
             outptr++;
         }
-        printf(":%d", status);
-        printf("\n");
-        printf("CRC:");
+        //printf(":%d", status);          //debug
+        //printf("\n");
+        
+        //CRC stuff
+        //printf("CRC:");                  //debug
         //CRC bits are inverted!
         for (int i = 0; i < 6; i++) {
-            printf("%c", *outptr);
+            //printf("%c", *outptr);        //debug
             outptr++;
         }
-        printf("\n");
+        //printf("\n");                     //debug
+
         uint8_t crc_recv = (uint8_t)(63 - convert(outptr - 6, 6));
-        printf("CRC:0x%hhx\n", crc_recv);
+        //printf("CRC:0x%hhx\n", crc_recv);
 
         unsigned long int res3;
-        res3 = (res << 2) | (status & 0x03);   //fixme
+        res3 = (res << 2) | (status & 0x03);   //fixme... what  ?
         uint8_t crc_calc = crcBiSS(res3);
-        printf("CRCC: %x\n", crc_calc);
+        //printf("CRCC: %x\n", crc_calc);       //debug
         if (crc_calc == crc_recv) {
-            printf("CRCs: OK");
-            outdbl = res2;
+            //printf("CRCs: OK");               //debug
+            outdbl = res2;                      //getting valid result only on valid crc
         }
         else {
-            printf("CRCs: ERR!");
+            //printf("CRCs: ERR!");             //debug
         }
-        printf("\n");
+        //printf("\n");
     }
     else {
         printf("ERR\n");
@@ -250,7 +275,7 @@ unsigned long int SimpleSerial::convert(char* input, uint8_t len) {
     while (pow2 > 0) {
         //printf("%c", *charptr);
         if (*charptr == '1') {
-            result += pow(2, pow2 - 1);     //fixme c4244
+            result += pow(2, pow2 - 1);     //fixme c4244 possible loss of data
         }
         charptr++;
         pow2--;
@@ -259,29 +284,20 @@ unsigned long int SimpleSerial::convert(char* input, uint8_t len) {
     return result;
 }
 
-void SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the value
+int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the value
 {
     // Position (18/26/32/36 bits)
-
-    DWORD dwEventMask;
-
-    bool Status;
-
     for (auto i = lpBuffer.begin(); i != lpBuffer.end(); ++i) {
-        DWORD dNoOfBytesWritten = 0;        // No of bytes written to the port
+        dNoOfBytesWritten = 0;              // No of bytes written to the port
 
         Status = WriteFile(hComm,           // Handle to the Serial port
             (*i).c_str(),                   // Data to be written to the port
-            (*i).size(),                    //No of bytes to write
+            (*i).size(),                    //No of bytes to write  //fixme warn c4267 conversion from  size_t to DWORD, possible loss of data
             &dNoOfBytesWritten,             //Bytes written
             NULL);
 
         if (Status == FALSE)
-        {
-            //printf("Error in WriteFile()\n");
-            MessageBox(NULL, "Error3", "Error3", MB_OK);
-            return;
-        }
+            return 1;
         rtrim((*i));
         //printf("O2D: %s (%d, %d)\n", (*i).c_str(), (*i).size(), dNoOfBytesWritten);
         //std::cout << "Wrote " << dNoOfBytesWritten << " chars. Waiting for char\n";
@@ -290,27 +306,15 @@ void SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the
     Status = SetCommMask(hComm, EV_RXCHAR);
 
     if (Status == FALSE)
-    {
-        //printf("Error in SetCommMask()\n");
-        MessageBox(NULL, "Error1", "Error1", MB_OK);
-        return;
-    }
+        return 2;
 
     Status = WaitCommEvent(hComm, &dwEventMask, NULL);
     if (Status == FALSE)
-    {
-        //printf("Error in WaitCommEvent()\n");
-        MessageBox(NULL, "Error2", "Error2", MB_OK);
-        return;
-    }
+        return 3;
 
-    char TempChar; //Temporary character used for reading
-    char SerialBuffer[256];//Buffer for storing Rxed Data
-    DWORD NoBytesRead;
-    int i = 0;
-    long long unsigned int val;
+    //cut from here
+    i = 0;
 
-    //printf("BEGIN\n");
     do {
         ReadFile(hComm,           //Handle of the Serial port
             &TempChar,       //Temporary character
@@ -338,11 +342,9 @@ void SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the
     SerialBuffer[i] = 0x00;
     //printf("OUT:%s\n", SerialBuffer);
 
-    //split
-    char* ptr;
-    char* nptr;
-    char seps[] = ",\t\n\r";
-    ptr = strtok_s(SerialBuffer, seps, &nptr);
+    //split cut from here
+
+    ptr = strtok_s(SerialBuffer, seps, &nptr);  //split
 
     parts.clear();
 
@@ -361,20 +363,20 @@ void SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the
     //std::cout << parts[5] << std::endl;
 
     //get reading 
-    if (lineNo == 0) {
+    if (lineNo == 0) {                  //fixme. refactor lineNo name
         Value = -11.1111;
-        char* test; //
+        //char* test; //cut from here
         val = strtoull(parts[lineNo], &test, 16);
         //printf("TEST: %llx\n", val);
-
         Value = parsePosition(val);
+        return 0;
     }
+
     // get serial no
     if (lineNo == 2) {
-        Value = -11.1111;
-        
+        Value = -11.1111;  //error inidcation      
         SerNo = parts[lineNo];
+        return 0;
     }
-
-        //printf("END\n");
+    return 0;
 }

@@ -14,6 +14,9 @@
 #include <fstream>
 #include <list>
 #include <vector>
+#include <stdafx.h>
+
+#define DEBUG
 
 class SimpleSerial {
 
@@ -21,28 +24,59 @@ public:
     SimpleSerial(const LPCSTR& com_port);
     ~SimpleSerial();
 
-    double Value;
-    std::string SerNo;
-    bool SimpleSerial::IsConnected() const;
-    std::string SimpleSerial::ReadSerialPort();
+    bool WriteSerialPort(const std::string& data_sent);
+    double readValuefromScale();
+
+    HANDLE OpenPort(LPCSTR ComPortName);
+    bool CloseSerialPort();
+
+    bool IsConnected() const;
+
+    double getValue();
+    std::string getSerNo();
+    int getReading(HANDLE hComm, int lineNo);
 
 private:
+    double Value;
+    std::string SerNo;
+
     bool connected_;
-    // Write methods
-    //int write(std::string data);
-    //int write_line(std::string data);
+    // 
     unsigned long int convert(char* input, uint8_t len);
-    char* SimpleSerial::convertToBitString(unsigned long long value);
+    char* convertToBitString(unsigned long long value);
 
     HANDLE io_handler_;
 
+    std::vector<std::string> lpBuffer;
+
     std::vector<char*> parts;
 
-    bool SimpleSerial::WriteSerialPort(const std::string& data_sent);
+    char TempChar;              //Temporary character used for reading
+    char SerialBuffer[256];     //Buffer for storing Rxed Data
 
-    HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName);
-    bool SimpleSerial::CloseSerialPort();
+    DWORD NoBytesRead;
+    int i;
+    long long unsigned int val;
 
+    //
+    char* ptr;
+    char* nptr;
+    char seps[4] = { 0x2c, 0x09, 0x0a, 0x0d };
+
+    //
+    char *test;
+
+    //
+    DWORD dNoOfBytesWritten;        // No of bytes written to the port
+    DWORD dwEventMask;
+    bool Status;
+
+    // from parseposition... to be cleaned
+    char out[130];
+    char* outptr;
+    double outdbl;
+
+    //
     uint8_t tableCRC6[64] = {
                                 0x00, 0x03, 0x06, 0x05, 0x0C, 0x0F, 0x0A, 0x09,
                                 0x18, 0x1B, 0x1E, 0x1D, 0x14, 0x17, 0x12, 0x11,
@@ -57,14 +91,7 @@ private:
 
     char str1[130];
 
-    void getReading(HANDLE hComm, int lineNo);
     double parsePosition(unsigned long long);
-
-    std::vector<std::string> lpBuffer;
-
-    // Read methods
-    //std::string read(int numBytes);
-    //std::string read_line();
 
     // trim from start (in place)
     inline void ltrim(std::string& s) {

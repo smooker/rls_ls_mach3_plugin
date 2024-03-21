@@ -1,4 +1,6 @@
+//#ifdef _MSC_VER
 #include "stdafx.h"
+//#endif
 
 #include "SimpleSerial.h"
 
@@ -14,12 +16,14 @@ connected_(false)
     //init
     //std::vector<std::string> lpBuffer = { "M6", "B26\r", "e", "s", "r", "4" }; //RABOTI DO M6 - 1.1MHz
     lpBuffer.clear();
-    lpBuffer.push_back("M6");
+    lpBuffer.push_back("M5");
     lpBuffer.push_back("B26\r");
     lpBuffer.push_back("r");
 
+    printf("before open\n");
     io_handler_ = OpenPort(com_port);
     getReading(io_handler_, 2);     //here smooker
+    printf("const exit\n");
 }
 
 SimpleSerial::~SimpleSerial()
@@ -91,27 +95,35 @@ bool SimpleSerial::IsConnected() const
 
 HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
 {
+    printf("vgz\n"); 
     std::string s = "\\\\.\\";
     s = s + ComPortName;
+
+    printf("Opening serial port %s\n", s.c_str());
+
     HANDLE hComm = CreateFileA(s.c_str(),                //port name
         GENERIC_READ | GENERIC_WRITE, //Read/Write
         0,                            // No Sharing
         NULL,                         // No Security
-        OPEN_EXISTING,// Open existing port only
-        0,            // Non Overlapped I/O
-        NULL);        // Null for Comm Devices
+        OPEN_EXISTING,                // Open existing port only
+        0,                            // Non Overlapped I/O
+        NULL);                        // Null for Comm Devices
 
-    if (hComm == INVALID_HANDLE_VALUE)
-        printf("Error in opening serial port\n");
-    else
+    if (hComm == INVALID_HANDLE_VALUE) {
+        printf("Error in opening serial port %s\n", s.c_str());
+    }
+    else {
         printf("opening serial port successful\n");
+    }
 
-    DCB dcbSerialParams = { 0 }; // Initializing DCB structure
+    printf("before freeze on dcbserialparams\n");
+
+    DCB dcbSerialParams = { 0 };                    // Initializing DCB structure.... freeze on debug
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
     bool Status = GetCommState(hComm, &dcbSerialParams);
 
-    dcbSerialParams.BaudRate = CBR_115200;          // Setting BaudRate = 9600
+    dcbSerialParams.BaudRate = CBR_256000;          // Setting BaudRate = 9600
     dcbSerialParams.ByteSize = 8;                   // Setting ByteSize = 8
     dcbSerialParams.StopBits = ONESTOPBIT;          // Setting StopBits = 1
     dcbSerialParams.Parity = NOPARITY;              // Setting Parity = None
@@ -120,6 +132,13 @@ HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
     dcbSerialParams.fOutxDsrFlow = FALSE;
     dcbSerialParams.fOutX = FALSE;
     dcbSerialParams.fInX = FALSE;
+    dcbSerialParams.fDtrControl = DTR_CONTROL_DISABLE;
+    dcbSerialParams.fTXContinueOnXoff = FALSE;
+    dcbSerialParams.fOutX = FALSE;
+    dcbSerialParams.fInX = FALSE;
+    dcbSerialParams.fNull = FALSE;
+    dcbSerialParams.fRtsControl = RTS_CONTROL_DISABLE;
+
 
     if (!SetCommState(hComm, &dcbSerialParams)) {// Set new state
         std::cout << "Tuka si eba maikata 1!\n";
@@ -127,16 +146,16 @@ HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
 
     std::cout << "Port set!\n";
 
-    COMMTIMEOUTS timeouts = { 0 };
-    timeouts.ReadIntervalTimeout = 50; // in milliseconds
-    timeouts.ReadTotalTimeoutConstant = 50; // in milliseconds
-    timeouts.ReadTotalTimeoutMultiplier = 10; // in milliseconds
-    timeouts.WriteTotalTimeoutConstant = 50; // in milliseconds
-    timeouts.WriteTotalTimeoutMultiplier = 10; // in milliseconds
+    //COMMTIMEOUTS timeouts = { 0 };
+    //timeouts.ReadIntervalTimeout = 10; // in milliseconds
+    //timeouts.ReadTotalTimeoutConstant = 1; // in milliseconds
+    //timeouts.ReadTotalTimeoutMultiplier = 1; // in milliseconds
+    //timeouts.WriteTotalTimeoutConstant = 1; // in milliseconds
+    //timeouts.WriteTotalTimeoutMultiplier = 1; // in milliseconds
 
-    if (!SetCommTimeouts(hComm, &timeouts)) {
-        std::cout << "Tuka si eba maikata 2!\n";
-    }
+    //if (!SetCommTimeouts(hComm, &timeouts)) {
+    //    std::cout << "Tuka si eba maikata 2!\n";
+    //}
     return hComm;
 }
 
@@ -163,12 +182,14 @@ uint8_t SimpleSerial::crcBiSS(uint32_t data)
 //convert from hex to actual position (double)
 double SimpleSerial::parsePosition(unsigned long long input)
 {
+    //0000000000001100000000000000000000100000000100111100101000100010
+    //0000000000000000000000000000000000000000000000000011001011000000
     //signal value
     outdbl = -11.111;
 
     outptr = &out[0];
 
-    memcpy(out, convertToBitString(input), 130);    //here checkme
+    memcpy(out, convertToBitString(input), 130);    //here checkme... mai e fixme
 
     //printf("\r\nBIN:%s\r\n", convertToBitString(input));
 
@@ -258,7 +279,7 @@ double SimpleSerial::parsePosition(unsigned long long input)
         //printf("\n");
     }
     else {
-        printf("ERR\n");
+        printf("ERR %d\n", errcnt++);
     }
     return outdbl;
 }
@@ -286,6 +307,8 @@ unsigned long int SimpleSerial::convert(char* input, uint8_t len) {
 
 int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the value
 {
+    int charsToComplete = 16;
+
     // Position (18/26/32/36 bits)
     for (auto i = lpBuffer.begin(); i != lpBuffer.end(); ++i) {
         dNoOfBytesWritten = 0;              // No of bytes written to the port
@@ -296,12 +319,16 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
             &dNoOfBytesWritten,             //Bytes written
             NULL);
 
-        if (Status == FALSE)
+        if (Status == FALSE) {
+            printf("WRITE FALSE\n");
             return 1;
+        }
         rtrim((*i));
         //printf("O2D: %s (%d, %d)\n", (*i).c_str(), (*i).size(), dNoOfBytesWritten);
         //std::cout << "Wrote " << dNoOfBytesWritten << " chars. Waiting for char\n";
     }
+
+    //da chakame za izprashtane ???
 
     Status = SetCommMask(hComm, EV_RXCHAR);
 
@@ -315,32 +342,47 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
     //cut from here
     i = 0;
 
+    memset(SerialBuffer, 0x00, sizeof(SerialBuffer));
+
+    //printf("stc: %d\n", sizeof(TempChar));
+
     do {
-        ReadFile(hComm,           //Handle of the Serial port
-            &TempChar,       //Temporary character
-            sizeof(TempChar),//Size of TempChar
-            &NoBytesRead,    //Number of bytes read
+        ReadFile(hComm,             //Handle of the Serial port
+            &TempChar,              //Temporary character
+            sizeof(TempChar),       //Size of TempChar
+            &NoBytesRead,           //Number of bytes read
             NULL);
         //std::cout << "Char came!" << i << SerialBuffer << "\n";
-        //std::cout << TempChar << "\n";
+        //std::cout << "TC:" << TempChar << "\n";
+        //printf("TC:%x\n", TempChar);
 
         //debug
         //printf("%c : 0x%02x \n", TempChar, TempChar);
 
+        if (NoBytesRead > 0) {
+            SerialBuffer[i] = TempChar;
+            i++;
+            if (lineNo == 0) {
+                charsToComplete--;
+            }
+        }
+
         // cr/lf processing
-        if (TempChar == 0x0d) {
-            SerialBuffer[i] = 0x0d;// Store Tempchar into buffer
-            i++;
-            SerialBuffer[i] = 0x0a;// Store Tempchar into buffer
-            i++;
-        }
-        else {
-            SerialBuffer[i] = TempChar;// Store Tempchar into buffer
-            i++;
-        }
-    } while (NoBytesRead > 0);
-    SerialBuffer[i] = 0x00;
-    //printf("OUT:%s\n", SerialBuffer);
+        //if (TempChar == 0x0d) {
+        //    SerialBuffer[i] = 0x0d;// Store Tempchar into buffer
+        //    i++;
+        //    SerialBuffer[i] = 0x0a;// Store Tempchar into buffer
+        //    i++;
+        //}
+        //else {
+        //    SerialBuffer[i] = TempChar;// Store Tempchar into buffer
+        //    i++;
+        ///}
+        //std::this_thread::sleep_for(std::chrono::microseconds(2));  //fixme
+
+    } while ( (NoBytesRead > 0) | ( (lineNo == 0) && (charsToComplete > 0) ) );
+    SerialBuffer[i] = 0x00;             //End of string
+    //printf("OUT:%svgz\n", SerialBuffer);
 
     //split cut from here
 
@@ -351,6 +393,7 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
     while (ptr != NULL)
     {
         //cout << ptr << endl; // print the string token  
+        printf("OUT_%02d:%s\n", parts.size(), ptr);
         parts.push_back(ptr);
         ptr = strtok_s(NULL, seps, &nptr);
     }
@@ -375,6 +418,7 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
     // get serial no
     if (lineNo == 2) {
         Value = -11.1111;  //error inidcation      
+        //printf("pc:%d\n", parts.size());
         SerNo = parts[lineNo];
         return 0;
     }

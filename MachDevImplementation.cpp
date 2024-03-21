@@ -149,10 +149,23 @@ void	myUpdate ()
 // smooker
 // da vikame M84 ili neshto takova sys g-code, koeto da stiga do thread 6 na dynomotiona
 {
-	if ((++smooCnt % 5) == 0) {
+	smooCnt++;
+	if ( smooCnt == 1 ) {
 		Serial3->readValuefromScale();
+		//Serial3->getValue();
+	}
+	if ( smooCnt == 2 ) {
+		Serial4->readValuefromScale();
+		//Serial3->getValue();
+	}
+	if ( smooCnt == 3 ) {
+		Serial5->readValuefromScale();
+		//Serial3->getValue();
+	}
+	if ( smooCnt > 2 ) {
 		smooCnt = 0;
 	}
+
 	//Serial4->ReadSerialPort(); //X
 	//Serial5->ReadSerialPort(); //X
 	//sprintf_s(buff, "SN: %s Value : %0.5lf", Serial->SerNo.c_str(), Serial->Value);

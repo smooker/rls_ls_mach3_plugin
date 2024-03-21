@@ -14,7 +14,7 @@
 #include <fstream>
 #include <list>
 #include <vector>
-#include <stdafx.h>
+
 
 #define DEBUG
 
@@ -35,6 +35,8 @@ public:
     double getValue();
     std::string getSerNo();
     int getReading(HANDLE hComm, int lineNo);
+
+    int errcnt = 0;
 
 private:
     double Value;

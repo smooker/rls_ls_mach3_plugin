@@ -1,6 +1,6 @@
 #pragma once
 
-// JoySetup dialog
+// Linear scales setup dialog
 
 class LSSetup : public CDialog
 {

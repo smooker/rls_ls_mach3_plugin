@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "SimpleSerial.h"
+
 #ifndef __AFXWIN_H__
 	#error include 'stdafx.h' before including this file for PCH
 #endif
@@ -70,3 +72,4 @@ extern CSTRret            GetProName;   // CString GetProName()
 extern VoidLPCSTR         Code;         // void    Code( "G0X10Y10" );
 
 // =====================================================================================================
+

@@ -80,12 +80,12 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "ArtSoft 2006"
-            VALUE "FileDescription", "JoyStick PlugIn for Mach3"
+            VALUE "CompanyName", "Smooker 2024"
+            VALUE "FileDescription", "LinearScales RLS PlugIn for Mach3"
             VALUE "FileVersion", "1.0.0.1"
-            VALUE "InternalName", "JoyStick.dll"
-            VALUE "LegalCopyright", "Artsoft 2006"
-            VALUE "OriginalFilename", "JoyStick.dll"
+            VALUE "InternalName", "LinearScales.dll"
+            VALUE "LegalCopyright", "Smooker 2024"
+            VALUE "OriginalFilename", "LinearScales.dll"
             VALUE "ProductName", "Mach3 PlugIn"
             VALUE "ProductVersion", "1.0.0.1"
         END

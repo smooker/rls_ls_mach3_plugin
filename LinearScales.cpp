@@ -231,7 +231,10 @@ extern "C" __declspec(dllexport) char* SetProName( CString name)           // CS
 	  return (char*)(LPCTSTR)strPlgName;
    
 }
-    
+ 
+//X1 = 55PF37
+//X2 = 55PF38
+//Y  = 4REE43
 
 // Calls into the DLL ////////////////////////////////////////////
 //*****************************************************

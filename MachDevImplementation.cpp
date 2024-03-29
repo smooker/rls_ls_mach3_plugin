@@ -51,6 +51,7 @@ bool Enabled = false;
 SimpleSerial* Serial3;
 SimpleSerial* Serial4;
 SimpleSerial* Serial5;
+
 char buff[100];
 
 //Templates of JotStick control routines.
@@ -65,8 +66,8 @@ char buff[100];
 
 //JoyStick Routines. 
 
-bool CheckJoyStick();
-void JogByStick();
+//bool CheckJoyStick();
+//void JogByStick();
 void SetupJoyStick( CXMLProfile *DevProf);
 
 
@@ -79,9 +80,51 @@ void SetupJoyStick( CXMLProfile *DevProf);
 
 void myCleanUp() //used for destrcution of variables prior to exit..
 {
-	delete Serial3;
-	delete Serial4;
-	delete Serial5;
+	CString str;
+	str.Format("before delete");
+	AfxMessageBox(str);
+
+	Serial3->~SimpleSerial();
+	Serial4->~SimpleSerial();
+	Serial5->~SimpleSerial();
+
+//	delete Serial3;
+//	delete Serial4;
+//	delete Serial5;
+}
+
+//X1 = 55PF37
+//X2 = 55PF38
+//Y  = 4REE43
+
+double getValueByUSBId (std::string serno)
+{
+	double ret = -11.12;
+
+	// 
+	if ( strcmp(Serial3->getSerNo().c_str(), serno.c_str()) == 0 ) {
+		ret = Serial3->readValuefromScale();
+	}
+
+	//
+	if ( strcmp(Serial4->getSerNo().c_str(), serno.c_str()) == 0 ) {
+		ret = Serial4->readValuefromScale();
+	}
+
+	//
+	if (strcmp(Serial5->getSerNo().c_str(), serno.c_str()) == 0 ) {
+		ret = Serial5->readValuefromScale();
+	}
+
+	if (ret < 0.0) {
+		//debug
+		CString str;
+		str.Format("error 51\n%s\n%s\n%s", Serial3->getSerNo().c_str(), Serial4->getSerNo().c_str(), Serial5->getSerNo().c_str());
+		AfxMessageBox(str);
+		//debug
+	}
+
+	return ret;
 }
 
 
@@ -100,13 +143,6 @@ void	myInitControl ()
 // **** Not used in typical device plugin
 
 {
-	smooCnt = 0;
-	//MessageBox(NULL, "Alive!", "Config OK", MB_OK);	//smooker
-	//char com3[] = "\\\\.\\COM3";
-	//Serial = new SimpleSerial(com3);
-	Serial3 = new SimpleSerial("\\\\.\\COM3");
-	Serial4 = new SimpleSerial("\\\\.\\COM4");
-	Serial5 = new SimpleSerial("\\\\.\\COM5");
 
 	//if (Serial->IsConnected()) {
 		//do whatever
@@ -120,7 +156,15 @@ void	myPostInitControl ()
 // called when mach fully set up so all data can be used but initialization  outcomes not affected
 
 {
-		return;
+	smooCnt = 0;
+	//MessageBox(NULL, "Alive!", "Config OK", MB_OK);	//smooker
+	//char com3[] = "\\\\.\\COM3";
+	//Serial = new SimpleSerial(com3);
+	Serial3 = new SimpleSerial("\\\\.\\COM3");
+	Serial4 = new SimpleSerial("\\\\.\\COM4");
+	Serial5 = new SimpleSerial("\\\\.\\COM5");
+
+	return;
 } //myPostInitControl
 
 void	myConfig (CXMLProfile *DevProf)
@@ -130,14 +174,14 @@ void	myConfig (CXMLProfile *DevProf)
 {
 	 //MessageBox(NULL, "Alive!", "Config OK", MB_OK);
 	 LSSetup *joy = new LSSetup();
-	 Engine->JoyOn = Enabled;
-	 joy->m_JoyOn = Engine->JoyOn;
+	 //Engine->JoyOn = Enabled;
+	 //joy->m_JoyOn = Engine->JoyOn;
      joy->DoModal();
      DevProf->WriteProfileInt("JogPlugIn","JogPlugHoriz",joy->m_Horiz);
      DevProf->WriteProfileInt("JogPlugIn","JogPlugVert",joy->m_Vert);
 	 DevProf->WriteProfileInt("JogPlugIn","JogStartEnabled",joy->m_JoyOn);
-	 Enabled  = joy->m_JoyOn == 1;
-	 Engine->JoyOn = Enabled;
+	 //Enabled  = joy->m_JoyOn == 1;
+	 //Engine->JoyOn = Enabled;
 	 XJoyAxis = joy->m_Horiz;
 	 YJoyAxis = joy->m_Vert;
      delete joy; 
@@ -151,20 +195,31 @@ void	myUpdate ()
 {
 	smooCnt++;
 	if ( smooCnt == 1 ) {
-		Serial3->readValuefromScale();
-		//Serial3->getValue();
+		//double x1 = Serial3->readValuefromScale();
+		//double x2 = Serial4->readValuefromScale();
+		//double y = Serial5->readValuefromScale();
+		//double x1 = Serial3->getValue();
+		//double x2 = Serial4->getValue();
+		//double y = Serial5->getValue();
+		//SetDRO(0-800, x1);
+		//SetDRO(1 - 800, x2);
+		//SetDRO(2 - 800, y);
+		//SetDRO(0, x1);
 	}
-	if ( smooCnt == 2 ) {
-		Serial4->readValuefromScale();
-		//Serial3->getValue();
-	}
-	if ( smooCnt == 3 ) {
-		Serial5->readValuefromScale();
-		//Serial3->getValue();
-	}
-	if ( smooCnt > 2 ) {
+
+	//if ( smooCnt == 2 ) {
+	//	Serial4->readValuefromScale();
+	//	//Serial3->getValue();
+	//}
+
+	//if ( smooCnt == 3 ) {
+	//	Serial5->readValuefromScale();
+	//	//Serial3->getValue();
+	//}
+
+	//if ( smooCnt > 2 ) {
 		smooCnt = 0;
-	}
+	//}
 
 	//Serial4->ReadSerialPort(); //X
 	//Serial5->ReadSerialPort(); //X
@@ -250,32 +305,31 @@ void SetupJoyStick( CXMLProfile *DevProf)
 }
 
 //////////////////////////////////// This routine checks the JoyStick is centered at program start, runaway would be dangerous.
-bool CheckJoyStick()
-{
+//bool CheckJoyStick()
+//{
+//JOYINFO joy;
+//if( !Engine->JoyOn && Enabled ) Engine->JoyOn = true;
+//for( int x = 0; x < 4; x++ )
+//{
+//  MMRESULT test = joyGetPos(x , &joy); 
+//  ReadStick = x;  //Find an Active JoyStick..
+//  if( test == 0 ) break;
+//
+//}
 
-JOYINFO joy;
-if( !Engine->JoyOn && Enabled ) Engine->JoyOn = true;
-for( int x = 0; x < 4; x++ )
-{
-  MMRESULT test = joyGetPos(x , &joy); 
-  ReadStick = x;  //Find an Active JoyStick..
-  if( test == 0 ) break;
-}
-
-if ( ReadStick == 3 ) 
-{
-    return false;  // 0, 1 and 2 are not responding.. So kill the JoySticks..
-}
+//if ( ReadStick == 3 ) 
+//{
+//    return false;  // 0, 1 and 2 are not responding.. So kill the JoySticks..
+//}
  
-if(  joy.wXpos > 42000  || joy.wXpos < 22000 || joy.wYpos < 22000 || joy.wYpos > 42000) 
-  {
-    MainPlanner->m_JoyOn = false;
-    Engine->JoyOn = false; //send message to user that JoyStick has been disabled till program restart.
-	return false;
-  }
-return true;
- 
-}
+//if(  joy.wXpos > 42000  || joy.wXpos < 22000 || joy.wYpos < 22000 || joy.wYpos > 42000) 
+//  {
+//    MainPlanner->m_JoyOn = false;
+//    Engine->JoyOn = false; //send message to user that JoyStick has been disabled till program restart.
+//	return false;
+//  }
+//return true;
+//}
 
 //////////////////////  This routine actually controls jogging the various axis by JoyStick, variable speed depending on the position of the stick. 
 //We'll vary from 0% to 100% of stick deflection
@@ -376,7 +430,39 @@ if( !XOn && TrackingX && Engine->Axis[  XJoyAxis ].Jogging)
    }
 }
 
+EXTERN_C __declspec(dllexport) double CallDLLFunc(double what)
+{
+	double ret = -11.15;
 
+	//return 2.0;
 
+//	CString str;
+//	str.Format("what = %g\nval = %g", what, ret);
+//	AfxMessageBox(str);
+	// Do something
+	OutputDebugString("CALL M84\n");
+//X1 = 55PF37
+//X2 = 55PF38
+//Y  = 4REE43
+	std::string x1str = "55PF37";
+	std::string x2str = "55PF38";
+	std::string ystr  = "4REE43";
 
+	if (what == 1.0) {
+		ret = getValueByUSBId(x1str);
+	}
+	else if (what == 2.0) {
+		ret = getValueByUSBId(x2str);
+	}
+	else if (what == 3.0) {
+		ret = getValueByUSBId(ystr);
+	}
 
+	if (ret < 0) {
+		CString str;
+		str.Format("what = %g\nval = %g", what, ret);
+		AfxMessageBox(str);
+	}
+
+	return ret;
+}

@@ -3,6 +3,8 @@
 //#endif
 
 #include "SimpleSerial.h"
+#include <windows.h>
+#include <strsafe.h>
 
 using namespace std;
 
@@ -20,10 +22,10 @@ connected_(false)
     lpBuffer.push_back("B26\r");
     lpBuffer.push_back("r");
 
-    printf("before open\n");
+    //printf("before open\n");
     io_handler_ = OpenPort(com_port);
     getReading(io_handler_, 2);     //here smooker
-    printf("const exit\n");
+    //printf("const exit\n");
 }
 
 SimpleSerial::~SimpleSerial()
@@ -34,6 +36,40 @@ SimpleSerial::~SimpleSerial()
         connected_ = false;
         CloseHandle(io_handler_);
     }
+}
+
+
+void SimpleSerial::ErrorExit(LPTSTR lpszFunction)
+{
+    // Retrieve the system error message for the last-error code
+
+    LPVOID lpMsgBuf;
+    LPVOID lpDisplayBuf;
+    DWORD dw = GetLastError();
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR)&lpMsgBuf,
+        0, NULL);
+
+    // Display the error message and exit the process
+
+    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
+        (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
+    StringCchPrintf((LPTSTR)lpDisplayBuf,
+        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+        TEXT("%s failed with error %d: %s"),
+        lpszFunction, dw, lpMsgBuf);
+    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
+
+    LocalFree(lpMsgBuf);
+    LocalFree(lpDisplayBuf);
+    ExitProcess(dw);
 }
 
 double SimpleSerial::getValue()
@@ -62,10 +98,18 @@ char* SimpleSerial::convertToBitString(unsigned long long value)
 
 double SimpleSerial::readValuefromScale()
 {
-    Value = -11.11111;
+    Value = -11.13;
     lpBuffer.clear();
     lpBuffer.push_back("4");
     getReading(io_handler_, 0);
+    if (Value < 0) {
+        //debug
+        CString str;
+        str.Format("error 37");
+        //AfxMessageBox(str);
+        //debug
+    }
+
     return Value;
 }
 
@@ -95,13 +139,12 @@ bool SimpleSerial::IsConnected() const
 
 HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
 {
-    printf("vgz\n"); 
     std::string s = "\\\\.\\";
     s = s + ComPortName;
 
-    printf("Opening serial port %s\n", s.c_str());
+    //printf("Opening serial port %s\n", s.c_str());
 
-    HANDLE hComm = CreateFileA(s.c_str(),                //port name
+    hComm = CreateFileA(s.c_str(),                //port name
         GENERIC_READ | GENERIC_WRITE, //Read/Write
         0,                            // No Sharing
         NULL,                         // No Security
@@ -111,19 +154,24 @@ HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
 
     if (hComm == INVALID_HANDLE_VALUE) {
         printf("Error in opening serial port %s\n", s.c_str());
+        //debug
+        CString str;
+        str.Format("error 1");
+        //AfxMessageBox(str);
+        //debug
     }
     else {
         printf("opening serial port successful\n");
     }
 
-    printf("before freeze on dcbserialparams\n");
+    //printf("before freeze on dcbserialparams\n");
 
     DCB dcbSerialParams = { 0 };                    // Initializing DCB structure.... freeze on debug
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
     bool Status = GetCommState(hComm, &dcbSerialParams);
 
-    dcbSerialParams.BaudRate = CBR_256000;          // Setting BaudRate = 9600
+    dcbSerialParams.BaudRate = CBR_115200;          // Setting BaudRate = 9600
     dcbSerialParams.ByteSize = 8;                   // Setting ByteSize = 8
     dcbSerialParams.StopBits = ONESTOPBIT;          // Setting StopBits = 1
     dcbSerialParams.Parity = NOPARITY;              // Setting Parity = None
@@ -137,14 +185,19 @@ HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
     dcbSerialParams.fOutX = FALSE;
     dcbSerialParams.fInX = FALSE;
     dcbSerialParams.fNull = FALSE;
+    dcbSerialParams.fAbortOnError = TRUE;
     dcbSerialParams.fRtsControl = RTS_CONTROL_DISABLE;
 
-
     if (!SetCommState(hComm, &dcbSerialParams)) {// Set new state
-        std::cout << "Tuka si eba maikata 1!\n";
+        //std::cout << "Tuka si eba maikata 1!\n";
+        //debug
+        CString str;
+        str.Format("error 2");
+        //AfxMessageBox(str);
+        //debug
     }
 
-    std::cout << "Port set!\n";
+    //std::cout << "Port set!\n";
 
     //COMMTIMEOUTS timeouts = { 0 };
     //timeouts.ReadIntervalTimeout = 10; // in milliseconds
@@ -280,6 +333,11 @@ double SimpleSerial::parsePosition(unsigned long long input)
     }
     else {
         printf("ERR %d\n", errcnt++);
+        //debug
+        CString str;
+        str.Format("error 3\n%s:", out);
+        //AfxMessageBox(str);
+        //debug
     }
     return outdbl;
 }
@@ -305,9 +363,27 @@ unsigned long int SimpleSerial::convert(char* input, uint8_t len) {
     return result;
 }
 
+
+void SimpleSerial::clearComm()
+{
+    DWORD dwError;
+    COMSTAT commstat;
+
+    ClearCommError(hComm, &dwError, &commstat);
+    if (dwError > 0) {
+        //debug
+        CString str;
+        str.Format("error 36");
+        AfxMessageBox(str);
+        //debug
+    }
+}
+
 int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the value
 {
-    int charsToComplete = 16;
+    int charsToComplete = 17;
+
+    clearComm();
 
     // Position (18/26/32/36 bits)
     for (auto i = lpBuffer.begin(); i != lpBuffer.end(); ++i) {
@@ -321,6 +397,13 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
 
         if (Status == FALSE) {
             printf("WRITE FALSE\n");
+            //debug
+            //CString str;
+            //str.Format("error writing to serial port %d", GetLastError());
+            //AfxMessageBox(str);
+            //debug
+
+            //ErrorExit(TEXT("WriteFile"));
             return 1;
         }
         rtrim((*i));
@@ -328,16 +411,26 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
         //std::cout << "Wrote " << dNoOfBytesWritten << " chars. Waiting for char\n";
     }
 
-    //da chakame za izprashtane ???
-
     Status = SetCommMask(hComm, EV_RXCHAR);
 
-    if (Status == FALSE)
+    if (Status == FALSE) {
+        //debug
+        CString str;
+        str.Format("error 32");
+        AfxMessageBox(str);
+        //debug
         return 2;
+    }
 
     Status = WaitCommEvent(hComm, &dwEventMask, NULL);
-    if (Status == FALSE)
+    if (Status == FALSE) {
+        //debug
+        CString str;
+        str.Format("error 33");
+        AfxMessageBox(str);
+        //debug
         return 3;
+    }
 
     //cut from here
     i = 0;
@@ -347,11 +440,23 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
     //printf("stc: %d\n", sizeof(TempChar));
 
     do {
-        ReadFile(hComm,             //Handle of the Serial port
+        Status = ReadFile(hComm,             //Handle of the Serial port
             &TempChar,              //Temporary character
             sizeof(TempChar),       //Size of TempChar
             &NoBytesRead,           //Number of bytes read
             NULL);
+
+        if (Status == FALSE) {
+            //debug
+            CString str;
+            str.Format("error 34");
+            AfxMessageBox(str);
+            //debug
+            return 3;
+        }
+
+        clearComm();
+
         //std::cout << "Char came!" << i << SerialBuffer << "\n";
         //std::cout << "TC:" << TempChar << "\n";
         //printf("TC:%x\n", TempChar);
@@ -381,6 +486,7 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
         //std::this_thread::sleep_for(std::chrono::microseconds(2));  //fixme
 
     } while ( (NoBytesRead > 0) | ( (lineNo == 0) && (charsToComplete > 0) ) );
+    //} while (TempChar == 0x13);
     SerialBuffer[i] = 0x00;             //End of string
     //printf("OUT:%svgz\n", SerialBuffer);
 
@@ -409,17 +515,43 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
     if (lineNo == 0) {                  //fixme. refactor lineNo name
         Value = -11.1111;
         //char* test; //cut from here
+
+        if (strlen(parts[lineNo]) != 16) 
+        {
+            //debug
+            CString str;
+            str.Format("strlen:%s", parts[lineNo]);
+            AfxMessageBox(str);
+            //debug
+
+        }
         val = strtoull(parts[lineNo], &test, 16);
         //printf("TEST: %llx\n", val);
         Value = parsePosition(val);
+        if (Value < 0.0) {
+            //debug
+            CString str;
+            str.Format("x1 = %g\nx2 = %g\n y = %g", 1, 1, 1);
+            AfxMessageBox(str);
+            //debug
+        }
+
         return 0;
     }
 
     // get serial no
     if (lineNo == 2) {
-        Value = -11.1111;  //error inidcation      
+        Value = -11.17;  //error inidcation
         //printf("pc:%d\n", parts.size());
-        SerNo = parts[lineNo];
+        SerNo = parts[lineNo];          //fixme... check for serial number 5 hex characters
+        if (strlen(SerNo.c_str()) != 6 ) {
+            //debug
+            CString str;
+            //str.Format("serno: %s\n%s\n%s\n%s", SerNo.c_str(), parts[0], parts[1], parts[2]);
+            str.Format("serno: %s\n", SerNo.c_str());
+            AfxMessageBox(str);
+            //debug
+        }
         return 0;
     }
     return 0;

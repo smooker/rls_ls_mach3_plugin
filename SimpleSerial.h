@@ -18,6 +18,13 @@
 
 #define DEBUG
 
+#pragma once
+
+#ifndef __SIMPLESERIAL__
+    #define __SIMPLESERIAL__
+#endif
+
+
 class SimpleSerial {
 
 public:
@@ -37,6 +44,12 @@ public:
     int getReading(HANDLE hComm, int lineNo);
 
     int errcnt = 0;
+
+    void ErrorExit(LPTSTR lpszFunction);
+
+    HANDLE hComm;
+
+    void clearComm();
 
 private:
     double Value;

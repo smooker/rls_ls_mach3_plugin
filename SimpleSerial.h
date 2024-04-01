@@ -78,6 +78,10 @@ private:
     char* nptr;
     char seps[4] = { 0x2c, 0x09, 0x0a, 0x0d };
 
+    LPTSTR ReceiveRS232();
+    LPTSTR SendRS232(LPTSTR cmd);
+    LPTSTR SendAndReceive(LPTSTR cmd);
+
     //
     char *test;
 

@@ -24,7 +24,18 @@ connected_(false)
 
     //printf("before open\n");
     io_handler_ = OpenPort(com_port);
-    getReading(io_handler_, 2);     //here smooker
+    //getReading(io_handler_, 2);    
+    SendAndReceive("M5");
+    SendAndReceive("B26\r");
+    SerNo = SendAndReceive("r");
+
+    //debug
+    //CString str;
+    //str.Format("SerNo: %s", SerNo.c_str() );
+    //AfxMessageBox(str);
+    //debug
+
+
     //printf("const exit\n");
 }
 
@@ -38,6 +49,107 @@ SimpleSerial::~SimpleSerial()
     }
 }
 
+LPTSTR SimpleSerial::SendRS232(LPTSTR cmd)
+{
+    unsigned long dNoOfBytesWritten = 0;            // No of bytes written to the port
+
+    Status = WriteFile(hComm,                       // Handle to the Serial port
+        cmd,                                        // Data to be written to the port
+        strlen(cmd),                                //No of bytes to write  //fixme warn c4267 conversion from  size_t to DWORD, possible loss of data
+        &dNoOfBytesWritten,                         //Bytes written
+        NULL);
+
+    if (Status == FALSE) {
+        printf("WRITE FALSE\n");
+        //ErrorExit(TEXT("WriteFile"));
+        return "VGZ";
+    }
+    //rtrim((*i));
+    return "VGZ";
+}
+
+//
+LPTSTR SimpleSerial::ReceiveRS232()
+{
+    //char SerialBuffer[256];                                     //Buffer for storing Rxed Data
+    memset(SerialBuffer, 0x00, sizeof(SerialBuffer));           //malloc ?
+
+    clearComm();
+
+    Status = SetCommMask(hComm, EV_RXCHAR);
+
+    if (Status == FALSE) {
+        //debug
+        CString str;
+        str.Format("error 32_1");
+        AfxMessageBox(str);
+        //debug
+        return "VGZ";
+    }
+
+    Status = WaitCommEvent(hComm, &dwEventMask, NULL);
+    if (Status == FALSE) {
+        //debug
+        CString str;
+        str.Format("error 33_1");
+        AfxMessageBox(str);
+        //debug
+        return "VGZ2";
+    }
+
+    clearComm();
+
+    do {
+        Status = ReadFile(hComm,            //Handle of the Serial port
+            &SerialBuffer,                  //Temporary character
+            sizeof(SerialBuffer),           //Size of TempChar
+            &NoBytesRead,                   //Number of bytes read
+            NULL);
+
+        //check bytes read
+
+        //debug
+        CString str;
+        str.Format("str: %s", SerialBuffer);
+        //AfxMessageBox(str);
+        //debug
+
+        if (Status == FALSE) {
+            //debug
+            CString str;
+            str.Format("err rcsrs232 sb: %s", SerialBuffer);
+            AfxMessageBox(str);
+            //debug
+            clearComm();
+            return "VGZ";
+        }
+    } while ( NoBytesRead > 0);
+
+    //debug
+//    CString str;
+//    str.Format("rcv: %s", SerialBuffer);
+//    AfxMessageBox(str);
+    //debug
+
+    return SerialBuffer;
+}
+
+
+LPTSTR SimpleSerial::SendAndReceive(LPTSTR cmd)
+{
+    LPTSTR res;
+
+    SendRS232(cmd);
+    res = ReceiveRS232();
+
+    //debug
+    //CString str;
+    //str.Format("err rcsrs232 res: %s", res);
+    //AfxMessageBox(str);
+    //debug
+
+    return res;
+}
 
 void SimpleSerial::ErrorExit(LPTSTR lpszFunction)
 {
@@ -199,16 +311,17 @@ HANDLE SimpleSerial::OpenPort(LPCSTR ComPortName)
 
     //std::cout << "Port set!\n";
 
-    //COMMTIMEOUTS timeouts = { 0 };
-    //timeouts.ReadIntervalTimeout = 10; // in milliseconds
-    //timeouts.ReadTotalTimeoutConstant = 1; // in milliseconds
-    //timeouts.ReadTotalTimeoutMultiplier = 1; // in milliseconds
-    //timeouts.WriteTotalTimeoutConstant = 1; // in milliseconds
-    //timeouts.WriteTotalTimeoutMultiplier = 1; // in milliseconds
+    COMMTIMEOUTS timeouts = { 0 };
+    timeouts.ReadIntervalTimeout = 10; // in milliseconds
+    timeouts.ReadTotalTimeoutConstant = 1; // in milliseconds
+    timeouts.ReadTotalTimeoutMultiplier = 1; // in milliseconds
+    timeouts.WriteTotalTimeoutConstant = 1; // in milliseconds
+    timeouts.WriteTotalTimeoutMultiplier = 1; // in milliseconds
 
-    //if (!SetCommTimeouts(hComm, &timeouts)) {
-    //    std::cout << "Tuka si eba maikata 2!\n";
-    //}
+    if (!SetCommTimeouts(hComm, &timeouts)) {
+        std::cout << "Tuka si eba maikata 2!\n";
+    }
+    clearComm();
     return hComm;
 }
 
@@ -373,7 +486,7 @@ void SimpleSerial::clearComm()
     if (dwError > 0) {
         //debug
         CString str;
-        str.Format("error 36");
+        str.Format("error 36_%d", dwError);
         AfxMessageBox(str);
         //debug
     }
@@ -433,7 +546,7 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
     }
 
     //cut from here
-    i = 0;
+    //i = 0;
 
     memset(SerialBuffer, 0x00, sizeof(SerialBuffer));
 
@@ -441,8 +554,8 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
 
     do {
         Status = ReadFile(hComm,             //Handle of the Serial port
-            &TempChar,              //Temporary character
-            sizeof(TempChar),       //Size of TempChar
+            &SerialBuffer ,              //Temporary character
+            sizeof(SerialBuffer),       //Size of TempChar
             &NoBytesRead,           //Number of bytes read
             NULL);
 
@@ -452,44 +565,12 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
             str.Format("error 34");
             AfxMessageBox(str);
             //debug
+            clearComm();
             return 3;
         }
 
-        clearComm();
-
-        //std::cout << "Char came!" << i << SerialBuffer << "\n";
-        //std::cout << "TC:" << TempChar << "\n";
-        //printf("TC:%x\n", TempChar);
-
-        //debug
-        //printf("%c : 0x%02x \n", TempChar, TempChar);
-
-        if (NoBytesRead > 0) {
-            SerialBuffer[i] = TempChar;
-            i++;
-            if (lineNo == 0) {
-                charsToComplete--;
-            }
-        }
-
-        // cr/lf processing
-        //if (TempChar == 0x0d) {
-        //    SerialBuffer[i] = 0x0d;// Store Tempchar into buffer
-        //    i++;
-        //    SerialBuffer[i] = 0x0a;// Store Tempchar into buffer
-        //    i++;
-        //}
-        //else {
-        //    SerialBuffer[i] = TempChar;// Store Tempchar into buffer
-        //    i++;
-        ///}
-        //std::this_thread::sleep_for(std::chrono::microseconds(2));  //fixme
-
-    } while ( (NoBytesRead > 0) | ( (lineNo == 0) && (charsToComplete > 0) ) );
-    //} while (TempChar == 0x13);
-    SerialBuffer[i] = 0x00;             //End of string
-    //printf("OUT:%svgz\n", SerialBuffer);
-
+    } while ( NoBytesRead == 0 );
+    
     //split cut from here
 
     ptr = strtok_s(SerialBuffer, seps, &nptr);  //split
@@ -503,13 +584,6 @@ int SimpleSerial::getReading(HANDLE hComm, int lineNo)     //line no to get the 
         parts.push_back(ptr);
         ptr = strtok_s(NULL, seps, &nptr);
     }
-
-    //std::cout << parts[0] << std::endl;
-    //std::cout << parts[1] << std::endl;
-    //std::cout << parts[2] << std::endl;
-    //std::cout << parts[3] << std::endl;
-    //std::cout << parts[4] << std::endl;
-    //std::cout << parts[5] << std::endl;
 
     //get reading 
     if (lineNo == 0) {                  //fixme. refactor lineNo name
